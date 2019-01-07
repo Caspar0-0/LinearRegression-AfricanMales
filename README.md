@@ -13,6 +13,6 @@ What things you need to install the software: R.
 How to install them: https://www.r-project.org/
 
 ```
-### Authors
+## Authors
 
-* **Caspar Chen** 
+* **Caspar Chen** - *Initial work*
