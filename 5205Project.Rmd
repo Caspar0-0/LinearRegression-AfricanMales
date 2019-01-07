@@ -1,0 +1,338 @@
+---
+title: "Linear Regression Models Project"
+author: "caspar chen jc5067"
+date: "11/22/2018"
+output: word_document
+---
+
+
+# Introduction
+
+```{r}
+# data
+df <- read.csv("salary.txt",header=T)
+head(df)
+# Names of variables 
+wage <- df$wage
+edu <- df$edu
+exp <- df$exp
+city <- df$city
+reg <- df$reg
+race <- df$race
+deg <- df$deg
+com <- df$com
+emp <- df$emp
+
+# Take a peak at the data (try other common functions) 
+head(df)
+dim(df)
+summary(df)
+```
+
+```{r}
+# Construct training and test datasets
+# Use sample 
+# Set seed to 0 
+set.seed(0)
+round(.2*nrow(df))
+index <- sample(1:nrow(df),4965,replace = F)
+train.data <- df[-index,]
+data <- train.data 
+test.data <- df[index,]
+
+# Quality control check
+sum(df$race=="black")/nrow(df)
+sum(train.data$race=="black")/nrow(data)
+sum(test.data$race=="black")/nrow(test.data)
+table(df$race,df$city)/nrow(df)
+table(train.data$race,train.data$city)/nrow(train.data)
+```
+
+# Basic EDA (exploratory data analysis)
+```{r}
+qqnorm(log(df$wage),ylab="log(Wage)")
+boxplot(log(df$wage)~df$race,xlab="Race",ylab="log(Wage)")
+summary(lm(log(df$wage)~df$race))
+raceblack <- ifelse(df$race=="black","black","other")
+boxplot(log(df$wage)~raceblack,xlab="Race",ylab="log(Wage)")
+summary(lm(log(df$wage)~raceblack))
+
+
+```
+
+# Rough models
+
+```{r}
+# raw model 1
+r.model.1 <- lm(wage~edu+exp+city+reg+race+deg+com+emp,data=train.data) 
+summary(r.model.1)
+AIC(r.model.1)
+qqnorm(rstudent(r.model.1))
+qqline(rstudent(r.model.1))
+# Rough model 2 
+r.model.2 <- lm(log(wage)~edu+exp+city+reg+race+deg+com+emp,data=train.data)
+summary(r.model.2)
+AIC(r.model.2)
+qqnorm(rstudent(r.model.2),ylab="log(Wage)")
+qqline(rstudent(r.model.2))
+```
+
+#Test log(wage) with every x variable
+```{r}
+par(mfrow = c(2,4))
+
+# edu
+plot((data$edu),log(data$wage),xlab="Edu",ylab="log(Wage)")
+lines(supsmu((data$edu),log(data$wage)),col=2)
+
+# exp
+plot(data$exp,log(data$wage),xlab="Exp",ylab="log(Wage)")
+lines(supsmu(data$exp,log(data$wage)),col=2)
+ 
+#city
+boxplot(log(data$wage)~data$city,xlab="City",ylab="log(Wage)")
+#reg
+boxplot(log(data$wage)~data$reg,xlab="Reg",ylab="log(Wage)")
+
+#race
+boxplot(log(data$wage)~data$race,xlab="Race",ylab="log(Wage)")
+
+#deg
+boxplot(log(data$wage)~data$deg,xlab="Deg",ylab="log(Wage)")
+
+# com
+plot(data$com,log(data$wage),xlab="Com",ylab="log(Wage)")
+lines(supsmu(data$com,log(data$wage)),col=2)
+# emp
+plot(data$emp,log(data$wage),xlab="Emp",ylab="log(Wage)")
+lines(supsmu(data$emp,log(data$wage)),col=2)
+
+```
+
+```{r}
+# Rough model 3 
+r.model.3 <- lm(log(wage)~edu+poly(exp, degree = 2)+city+reg+race+deg+emp,data=train.data)
+summary(r.model.3)
+AIC(r.model.3)
+qqnorm(rstudent(r.model.3),ylab="log(Wage)")
+qqline(rstudent(r.model.3))
+```
+# Look for interactions using plots and AIC 
+
+```{r}
+#Categorical varaibles vs Categorical varaibles
+# City vs region
+# There exists an interaction and the level of region that interacts with city is west.
+interaction.plot(city,reg,log(wage), main="Interaction between region and city")
+summary(lm(log(data$wage) ~ city  + reg + city*reg, data = data))
+
+# City vs degree
+# There exists an interaction
+interaction.plot(city,deg,log(wage), main="Interaction between degree and city")
+summary(lm(log(data$wage) ~city + deg + city*deg , data = data))
+
+# region vs degree
+#There exists an interaction
+reg <- data$reg
+deg <- data$deg
+wage <- data$wage
+interaction.plot(reg,deg,log(wage))
+```
+
+```{r}
+#Categorical varaibles vs Continuous varaibles
+# race vs edu
+plot(data$edu,log(wage),col=data$race)
+plot(data$edu,log(wage),col="lightgrey")
+black <- data$race=="black"
+white <- data$race=="white"
+other <- data$race=="other"
+# smoother
+plot(data$edu,log(wage),col="lightgrey")
+abline(lm(log(df$wage)[black]~df$edu[black]),col=2)
+abline(lm(log(df$wage)[white]~df$edu[white]),col=3)
+abline(lm(log(df$wage)[other]~df$edu[other]),col=4)
+legend("topleft",legend=c("Black","White","Other"),fill=2:(length(levels(df$race))+1))
+# Looks close to parallel. An interaction between race and education probably shouldn’t be included.
+
+# City vs edu
+
+plot(data$edu,log(data$wage),col=data$city)
+plot(data$edu,log(data$wage),col="lightgrey")
+yes <- data$city=="yes"
+no <- data$city=="no"
+# smoother
+plot(data$edu,log(data$wage),col="lightgrey",xlab="Edu")
+lines(supsmu(data$edu[yes],log(data$wage)[yes]),col=2)
+lines(supsmu(data$edu[no],log(data$wage)[no]),col=3)
+legend("topright",legend=c("Yes","No"),col=c(2,3),lty=c(1,1))
+
+# City vs exp
+plot(data$exp,log(data$wage),col=data$city)
+plot(data$exp,log(data$wage),col="lightgrey")
+yes <- data$city=="yes"
+no <- data$city=="no"
+# smoother
+plot(data$exp,log(data$wage),col="lightgrey",xlab="Exp")
+lines(supsmu(data$exp[yes],log(data$wage)[yes]),col=2)
+lines(supsmu(data$exp[no],log(data$wage)[no]),col=3)
+legend("topright",legend=c("Yes","No"),col=c(2,3),lty=c(1,1))
+
+# Reg vs edu
+plot(data$edu,log(data$wage),col=data$reg)
+plot(data$edu,log(data$wage),col="lightgrey")
+
+midwest <- data$reg=="midwest"
+northeast <- data$reg=="northeast"
+south <- data$reg=="south"
+west <- data$reg=="west"
+
+# smoother
+plot(data$edu,log(data$wage),col="lightgrey",xlab="Edu")
+lines(supsmu(data$edu[midwest],log(data$wage)[midwest]),col=2)
+lines(supsmu(data$edu[northeast],log(data$wage)[northeast]),col=3)
+lines(supsmu(data$edu[south],log(data$wage)[south]),col=4)
+lines(supsmu(data$edu[west],log(data$wage)[west]),col=5)
+legend("topright",legend=c("Midwest","Northeast","South","West"),col=c(2,3,4,5),lty=c(1,1,1,1))
+
+# Reg vs exp
+plot(data$exp,log(data$wage),col=data$reg)
+plot(data$exp,log(data$wage),col="lightgrey")
+midwest <- data$reg=="midwest"
+northeast <- data$reg=="northeast"
+south <- data$reg=="south"
+west <- data$reg=="west"
+# smoother
+plot(data$exp,log(data$wage),col="lightgrey",xlab="Exp")
+lines(supsmu(data$exp[midwest],log(data$wage)[midwest]),col=2)
+lines(supsmu(data$exp[northeast],log(data$wage)[northeast]),col=3)
+lines(supsmu(data$exp[south],log(data$wage)[south]),col=4)
+lines(supsmu(data$exp[west],log(data$wage)[west]),col=5)
+legend("topright",legend=c("Midwest","Northeast","South","West"),col=c(2,3,4,5),lty=c(1,1,1,1))
+
+# Deg vs edu
+plot(data$edu,log(data$wage),col=data$deg)
+plot(data$edu,log(data$wage),col="lightgrey")
+yes <- data$deg=="yes"
+no <- data$deg=="no"
+# smoother
+plot(data$edu,log(data$wage),col="lightgrey",xlab="Edu")
+lines(supsmu(data$edu[yes],log(data$wage)[yes]),col=2)
+lines(supsmu(data$edu[no],log(data$wage)[no]),col=3)
+legend("topright",legend=c("Yes","No"),col=c(2,3),lty=c(1,1))
+
+```
+
+```{r}
+# Pearson correlation for continuous variable only
+cor(data.frame(log(data$wage), data$edu,data$exp, data$emp))
+```
+
+
+```{r}
+#final model
+final.model <- lm(log(wage)~ edu + poly(exp,2) + city + reg + race + deg + emp + edu*exp + edu*city + edu*deg + exp*deg + city*reg + city*deg + reg*deg, data=train.data)
+summary(final.model)
+AIC(final.model)
+#research question 2 
+train.data2 <- train.data
+train.data2$race <- ifelse(train.data$race=="black","black","other")
+final.model2 <- lm(log(wage)~ edu + poly(exp,2) + city+reg + race + deg + emp + edu*exp + edu*city + edu*deg + exp*deg + city*reg + city*deg + reg*deg, data=train.data2)
+summary(final.model2)
+AIC(final.model2)
+AIC(final.model2) < AIC(final.model)
+```
+
+# Model Validation
+## i.Diagnostics
+```{r}
+par(mfrow=c(2,3))
+#1.Scatterplot
+plot(wage~race,data=train.data,main="Scatter-Plot")
+abline(final.model,col =2)
+#2.QQplot
+qqnorm(rstudent(final.model),main="QQ-Plot")
+abline(a=0,b=1,lty=1,col=2)
+#3.histogram
+hist(rstudent(final.model), main ="Histogram", xlab ="Studentized Deleted Residuals")
+#4.line plot of the studentized deleted residuals
+plot(rstudent(final.model),main="Line Plot",ylab="Studentized Deleted Residuals")
+abline(h=0,lty=1,col =2)
+lines(1:19858,rstudent(final.model),col=2)
+#5.Studentized deleted residuals verses predicted values y_hat
+plot(predict(final.model),rstudent(final.model),main="Residual Plot",xlab="Y-hat",ylab="Studentized Deleted Residuals")
+abline(h=0,lty=2)
+lines(supsmu(predict(final.model),rstudent(final.model)),col=2)
+#6.Studentized deleted residuals verses covariate race
+plot(rstudent(final.model)~train.data$race,main="Residual Plot",xlab="race",ylab="Studentized Deleted Residuals")
+abline(h=0,lty=1,col =2)
+```
+
+
+## ii.Compute MSPR and MSE
+
+Below we compute the MSPR using our final model trained from the training set on the test set. First fit the final model on the training set. 
+```{r}
+# Compute MSE 
+MSE <- sum((residuals(final.model))^2)/(nrow(train.data)-16)
+
+final.modelfulldata <- lm(log(wage)~ edu + poly(exp,2) + city + reg + race + deg + emp + edu*exp + edu*city + edu*deg + exp*deg + city*reg + city*deg + reg*deg, data=df)
+# For comparison, we can compute MSE of the earlier final model
+MSE.earler <- sum((residuals(final.modelfulldata))^2)/(nrow(df)-16)
+```
+
+
+Next we have to extract the test data. Then plug the test data in the predict function to find the Y-predictions, i.e., Y.test. Then construct the MSPR and compare to MSE.   
+
+```{r}
+
+# Note we have to take out the wage variable, column 1 of test data
+names(train.data[,-1])
+
+Y.test <- test.data[,1]
+X.test <- test.data[,-1]
+n.test <- nrow(X.test)
+n.test
+Y.hat.test <- predict(final.model, newdata = X.test)
+length(Y.hat.test)==n.test
+# MSPR
+MSPR <- mean((log(Y.test)-Y.hat.test)^2)
+MSPR
+MSE
+MSE.earler
+round(c(MSPR=MSPR,MSE=MSE,MSEearler=MSE.earler),4)
+```
+
+## iii.influential Observations
+
+```{r}
+#DFBETAS
+final.model$coef
+#DFBETAS-raceother
+dfbetas(final.model)[,9]
+n <- length(train.data$wage)
+plot(dfbetas(final.model)[,9],main="DFBETAS-Raceother",ylim=c(-.4,.4))
+abline(h=2/sqrt(n),col = 2)
+abline(h=-2/sqrt(n),col = 2)
+#DFBETAS-racewhite
+dfbetas(final.model)[,10]
+plot(dfbetas(final.model)[,10],main="DFBETAS-Racewhite",ylim=c(-.4,.4))
+abline(h=2/sqrt(n),col = 2)
+abline(h=-2/sqrt(n),col = 2)
+```
+ 
+## iv. VIF
+```{r}
+#Variance Inflation Factor (VIF)
+library(faraway) 
+df$reg_num <- as.numeric(factor(df$reg, levels=c("northeast" ,"midwest", "south", "west")))
+df$city_num <- as.numeric(factor(df$city, levels=c("yes" , "no")))
+df$deg_num <- as.numeric(factor(df$deg, levels=c("yes" ,"no")))
+df$race_num <- as.numeric(factor(df$race, levels=c("black" ,"white", "other")))
+
+df.vif <- data.frame(edu,poly(exp,2), emp,df$reg_num,df$city_num,df$deg_num,df$race_num,edu*exp, edu*df$city_num, edu*df$deg_num, exp*df$deg_num, df$city_num*df$reg_num, df$city_num*df$deg_num, df$reg_num*df$deg_num)
+vif(df.vif)
+```
+
+
+
