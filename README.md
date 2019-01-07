@@ -1,5 +1,5 @@
 
-# Regression and ML Project
+# Linear Regression and ML Project
 This project studies a government dataset and answers research questions:
 1. Do African American males have statistically different wages compared to Caucasian males?
 2. Do African American males have statistically different wages compared to all other males?
